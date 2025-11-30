@@ -1,66 +1,218 @@
-type Calculator = {
-  title: string
-  status: 'Planned' | 'In progress' | 'Ready soon'
-  summary: string
+import { useMemo, useState } from 'react'
+import './index.css'
+
+type Inputs = {
+  vehiclePrice: number
+  leaseTermYears: number
+  residualPercent: number
+  leaseRate: number
+  runningCostsAnnual: number
+  providerFeesAnnual: number
+  taxRate: number
+  gstRate: number
+  loanTermYears: number
+  loanRate: number
 }
 
-const calculators: Calculator[] = [
-  {
-    title: 'Novated lease calculator',
-    status: 'In progress',
-    summary:
-      'Compare your provider quote against buying outright or taking a standard car loan, factoring GST and tax savings.',
-  },
-  {
-    title: 'Pay calculator',
-    status: 'Planned',
-    summary:
-      'Model take-home pay under different tax brackets, salary sacrifice amounts, and super contributions.',
-  },
-  {
-    title: 'Home loan calculator',
-    status: 'Planned',
-    summary:
-      'Project repayments and total interest, and compare offsets or redraw scenarios in one view.',
-  },
-]
+type Result = {
+  monthly: number
+  total: number
+  details: Record<string, number>
+}
 
-const highlights = [
-  'Client-side only: fast, private, no sign-up.',
-  'Built to be extensible: add calculators via config, not rewrites.',
-  'Clear comparison outputs: total cost, monthly net cost, and savings.',
-]
+const currency = new Intl.NumberFormat('en-AU', {
+  style: 'currency',
+  currency: 'AUD',
+  maximumFractionDigits: 0,
+})
 
-function StatusPill({ status }: { status: Calculator['status'] }) {
-  const colors: Record<Calculator['status'], string> = {
-    'In progress': 'bg-amber-500/20 text-amber-200 border-amber-500/60',
-    Planned: 'bg-slate-500/20 text-slate-200 border-slate-500/60',
-    'Ready soon': 'bg-emerald-500/20 text-emerald-100 border-emerald-500/60',
+const defaultInputs: Inputs = {
+  vehiclePrice: 65000,
+  leaseTermYears: 4,
+  residualPercent: 37.5,
+  leaseRate: 8.5,
+  runningCostsAnnual: 5500,
+  providerFeesAnnual: 400,
+  taxRate: 0.37,
+  gstRate: 0.1,
+  loanTermYears: 5,
+  loanRate: 9.0,
+}
+
+function paymentWithResidual(
+  principal: number,
+  annualRatePct: number,
+  months: number,
+  residual: number,
+): number {
+  const monthlyRate = annualRatePct / 100 / 12
+  if (monthlyRate === 0) {
+    return (principal - residual) / months
+  }
+  const discountResidual = residual / Math.pow(1 + monthlyRate, months)
+  const adjustedPrincipal = principal - discountResidual
+  return (
+    (adjustedPrincipal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months))
+  )
+}
+
+function paymentNoResidual(
+  principal: number,
+  annualRatePct: number,
+  months: number,
+): number {
+  const monthlyRate = annualRatePct / 100 / 12
+  if (monthlyRate === 0) {
+    return principal / months
   }
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${colors[status]}`}
-    >
-      {status}
-    </span>
+    (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months))
+  )
+}
+
+function calculateNovated(inputs: Inputs): Result {
+  const months = inputs.leaseTermYears * 12
+  const residual = inputs.vehiclePrice * (inputs.residualPercent / 100)
+  const gstSavings = inputs.vehiclePrice * inputs.gstRate
+  const financedPrincipal = inputs.vehiclePrice - gstSavings
+  const leaseMonthly = paymentWithResidual(
+    financedPrincipal,
+    inputs.leaseRate,
+    months,
+    residual,
+  )
+
+  const runningMonthly = inputs.runningCostsAnnual / 12
+  const feesMonthly = inputs.providerFeesAnnual / 12
+  const bundlePreTax = leaseMonthly + runningMonthly + feesMonthly
+  const netMonthly = bundlePreTax * (1 - inputs.taxRate)
+  const total = netMonthly * months + residual
+
+  return {
+    monthly: netMonthly,
+    total,
+    details: {
+      leaseMonthly,
+      runningMonthly,
+      feesMonthly,
+      residual,
+      gstSavings,
+    },
+  }
+}
+
+function calculateOutright(inputs: Inputs): Result {
+  const totalRunning = inputs.runningCostsAnnual * inputs.leaseTermYears
+  const total = inputs.vehiclePrice + totalRunning
+  return {
+    monthly: total / (inputs.leaseTermYears * 12),
+    total,
+    details: { totalRunning },
+  }
+}
+
+function calculateLoan(inputs: Inputs): Result {
+  const months = inputs.loanTermYears * 12
+  const monthlyPayment = paymentNoResidual(
+    inputs.vehiclePrice,
+    inputs.loanRate,
+    months,
+  )
+  const runningMonthly = inputs.runningCostsAnnual / 12
+  const total = (monthlyPayment + runningMonthly) * months
+  return {
+    monthly: monthlyPayment + runningMonthly,
+    total,
+    details: { monthlyPayment, runningMonthly },
+  }
+}
+
+function Card({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 shadow shadow-slate-950/40">
+      <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
+      <div className="mt-3 space-y-2 text-sm text-slate-200">{children}</div>
+    </div>
   )
 }
 
 function App() {
+  const [inputs, setInputs] = useState<Inputs>(defaultInputs)
+
+  const novated = useMemo(() => calculateNovated(inputs), [inputs])
+  const outright = useMemo(() => calculateOutright(inputs), [inputs])
+  const loan = useMemo(() => calculateLoan(inputs), [inputs])
+
+  const comparisons = [
+    { label: 'Novated lease (net after tax)', result: novated },
+    { label: 'Buy outright', result: outright },
+    { label: 'Standard car loan', result: loan },
+  ]
+
+  const best = comparisons.reduce((prev, curr) =>
+    curr.result.total < prev.result.total ? curr : prev,
+  )
+
+  const handleNumberChange = (key: keyof Inputs) => (value: string) => {
+    const numeric = Number(value)
+    if (Number.isFinite(numeric)) {
+      setInputs((prev) => ({ ...prev, [key]: numeric }))
+    }
+  }
+
+  const inputFields: {
+    label: string
+    key: keyof Inputs
+    hint?: string
+    step?: number
+    min?: number
+  }[] = [
+    { label: 'Vehicle price (incl. GST)', key: 'vehiclePrice', step: 1000 },
+    { label: 'Lease term (years)', key: 'leaseTermYears', step: 0.5, min: 1 },
+    { label: 'Residual/balloon (%)', key: 'residualPercent', step: 0.5 },
+    { label: 'Lease interest rate (%)', key: 'leaseRate', step: 0.1 },
+    { label: 'Running costs per year', key: 'runningCostsAnnual', step: 250 },
+    { label: 'Provider fees per year', key: 'providerFeesAnnual', step: 50 },
+    {
+      label: 'Marginal tax rate (decimal, e.g. 0.37)',
+      key: 'taxRate',
+      step: 0.01,
+    },
+    {
+      label: 'GST rate (decimal)',
+      key: 'gstRate',
+      step: 0.01,
+    },
+    { label: 'Loan term (years)', key: 'loanTermYears', step: 0.5, min: 1 },
+    {
+      label: 'Standard car loan rate (%)',
+      key: 'loanRate',
+      step: 0.1,
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
-              Finance calculators
+              Novated lease calculator
             </p>
             <h1 className="mt-1 text-3xl font-semibold sm:text-4xl">
-              Novated lease savings, done transparently
+              Compare novated lease vs buying outright or a car loan
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">
-              Start with your provider quote. We will compare against buying
-              outright and a standard car loan, including tax and GST effects.
+              Enter your provider quote and assumptions. We estimate monthly net
+              cost (after tax), total cost over the term, and how it compares to
+              buying outright or taking a standard loan. All calculations run in
+              your browser—nothing is stored.
             </p>
           </div>
           <div className="flex gap-3">
@@ -71,129 +223,172 @@ function App() {
               Get started
             </a>
             <a
-              href="#roadmap"
+              href="#disclaimers"
               className="rounded-full border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-500 hover:bg-slate-800"
             >
-              View roadmap
+              Read assumptions
             </a>
           </div>
         </header>
 
-        <main className="mt-10 space-y-12">
+        <main className="mt-10 space-y-10">
           <section
             id="get-started"
-            className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 shadow-2xl shadow-slate-950/60"
+            className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]"
           >
-            <div className="grid gap-10 border-b border-slate-800 px-6 py-8 md:grid-cols-2 md:px-10">
-              <div>
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl shadow-slate-950/60 sm:p-8">
+              <div className="flex items-center justify-between gap-2">
                 <h2 className="text-2xl font-semibold sm:text-3xl">
-                  Novated lease calculator
+                  Enter your numbers
                 </h2>
-                <p className="mt-3 text-sm text-slate-300 sm:text-base">
-                  Coming next: enter your quote, lease term, residual, running
-                  costs, fees, and your tax bracket. We will show monthly net
-                  cost, total cost over term, and compare against buying
-                  outright or taking a standard loan.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-200 sm:text-sm">
-                  <span className="rounded-full bg-emerald-500/15 px-3 py-1 font-semibold text-emerald-200">
-                    GST & tax savings
-                  </span>
-                  <span className="rounded-full bg-blue-500/15 px-3 py-1 font-semibold text-blue-200">
-                    Residual/balloon impact
-                  </span>
-                  <span className="rounded-full bg-fuchsia-500/15 px-3 py-1 font-semibold text-fuchsia-200">
-                    Running cost bundles
-                  </span>
-                </div>
+                <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
+                  Client-side only
+                </span>
               </div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 shadow-inner shadow-slate-950/50">
-                <h3 className="text-lg font-semibold text-slate-100">
-                  Input checklist
-                </h3>
-                <ul className="mt-3 space-y-2 text-sm text-slate-300">
-                  <li>• Vehicle price, lease term, and residual/balloon.</li>
-                  <li>• Provider fees and bundled running costs.</li>
-                  <li>• Your marginal tax rate and payroll frequency.</li>
-                  <li>• Expected annual kms, fuel/charging and insurance.</li>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                {inputFields.map((field) => (
+                  <label
+                    key={field.key}
+                    className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm"
+                  >
+                    <span className="text-slate-200">{field.label}</span>
+                    <input
+                      type="number"
+                      step={field.step ?? 1}
+                      min={field.min}
+                      value={inputs[field.key]}
+                      onChange={(e) => handleNumberChange(field.key)(e.target.value)}
+                      className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
+                    />
+                    {field.hint && (
+                      <span className="text-xs text-slate-400">{field.hint}</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <Card title="Highlights">
+                <p>
+                  Best option right now: <strong>{best.label}</strong>
+                </p>
+                <p>
+                  Estimated monthly net cost: {currency.format(best.result.monthly)}
+                </p>
+                <p>
+                  Estimated total over term: {currency.format(best.result.total)}
+                </p>
+              </Card>
+              <Card title="Quick assumptions">
+                <ul className="space-y-1 text-slate-300">
+                  <li>- GST saving is applied upfront to the financed amount.</li>
+                  <li>
+                    - Novated bundle (lease + running + fees) is salary sacrificed
+                    pre-tax; net cost multiplies by (1 - tax rate).
+                  </li>
+                  <li>- Residual is paid at end of lease and added to total.</li>
+                  <li>- Running costs are treated evenly across months.</li>
                 </ul>
-                <p className="mt-4 text-xs text-slate-400">
-                  We keep everything client-side. No sign-up, no storage unless
-                  you opt-in later for “remember my inputs”.
-                </p>
-              </div>
+              </Card>
             </div>
-            <div className="grid gap-6 px-6 py-6 md:grid-cols-3 md:px-10">
-              {highlights.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 text-sm text-slate-200 shadow shadow-slate-950/40"
-                >
-                  {item}
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-3">
+            {comparisons.map(({ label, result }) => (
+              <div
+                key={label}
+                className={`rounded-2xl border p-5 shadow shadow-slate-950/40 ${
+                  best.label === label
+                    ? 'border-emerald-500/60 bg-emerald-500/10'
+                    : 'border-slate-800 bg-slate-950/60'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-lg font-semibold text-slate-100">
+                    {label}
+                  </h3>
+                  {best.label === label && (
+                    <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-100">
+                      Lowest total
+                    </span>
+                  )}
                 </div>
-              ))}
-            </div>
+                <div className="mt-3 space-y-2 text-sm text-slate-200">
+                  <p>Monthly: {currency.format(result.monthly)}</p>
+                  <p>Total over term: {currency.format(result.total)}</p>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <Card title="Breakdown (novated)">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-slate-400">Lease monthly (pre-tax)</p>
+                  <p className="font-semibold text-slate-100">
+                    {currency.format(novated.details.leaseMonthly)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Running monthly</p>
+                  <p className="font-semibold text-slate-100">
+                    {currency.format(novated.details.runningMonthly)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Fees monthly</p>
+                  <p className="font-semibold text-slate-100">
+                    {currency.format(novated.details.feesMonthly)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Residual at end</p>
+                  <p className="font-semibold text-slate-100">
+                    {currency.format(novated.details.residual)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400">GST saving</p>
+                  <p className="font-semibold text-emerald-200">
+                    {currency.format(novated.details.gstSavings)}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card title="Notes">
+              <p>
+                This is a simplified estimate. It does not account for Fringe
+                Benefits Tax, ECM split, insurance specifics, early termination,
+                or sale proceeds at end of term. Use your provider paperwork for
+                final numbers.
+              </p>
+              <p>
+                Tax and GST treatment can change by jurisdiction. Confirm your
+                marginal tax rate and any caps with your payroll/HR or tax
+                adviser.
+              </p>
+              <p>
+                Running costs are averaged; in reality, fuel/charging and
+                maintenance will vary by month.
+              </p>
+            </Card>
           </section>
 
           <section
-            id="roadmap"
-            className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 shadow-2xl shadow-slate-950/50 sm:p-8"
+            id="disclaimers"
+            className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl shadow-slate-950/50 sm:p-8"
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-2xl font-semibold sm:text-3xl">
-                  Calculator roadmap
-                </h2>
-                <p className="mt-2 text-sm text-slate-300 sm:text-base">
-                  We are starting with novated leases and keeping the framework
-                  modular so new calculators slot in without a rewrite.
-                </p>
-              </div>
-            </div>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {calculators.map((calculator) => (
-                <article
-                  key={calculator.title}
-                  className="flex h-full flex-col rounded-2xl border border-slate-800 bg-slate-950/60 p-5 shadow shadow-slate-950/40"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-lg font-semibold text-slate-100">
-                      {calculator.title}
-                    </h3>
-                    <StatusPill status={calculator.status} />
-                  </div>
-                  <p className="mt-3 text-sm text-slate-300">
-                    {calculator.summary}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl shadow-slate-950/50 sm:p-8">
-              <h2 className="text-2xl font-semibold">How you can help</h2>
-              <p className="mt-3 text-sm text-slate-300">
-                Send a sample novated lease quote or the fields your provider
-                asks for. We will tune the defaults and assumptions to match
-                real-world scenarios.
-              </p>
-              <div className="mt-4 space-y-2 text-sm text-slate-200">
-                <p>• Common providers and fees we should include.</p>
-                <p>• Typical residual percentages by term.</p>
-                <p>• Fuel vs EV charging costs, maintenance bundles.</p>
-              </div>
-            </div>
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl shadow-slate-950/50 sm:p-8">
-              <h2 className="text-2xl font-semibold">Launch checklist</h2>
-              <ol className="mt-4 space-y-2 text-sm text-slate-200">
-                <li>1) Implement calculator core and validation.</li>
-                <li>2) Add comparison views and assumptions panel.</li>
-                <li>3) Write FAQ/disclaimer content.</li>
-                <li>4) Ship responsive polish and accessibility pass.</li>
-                <li>5) Deploy on GitHub Pages or Vercel.</li>
-              </ol>
-            </div>
+            <h2 className="text-2xl font-semibold">Disclaimer</h2>
+            <p className="mt-3 text-sm text-slate-300">
+              This tool is for illustration only and is not financial advice. It
+              relies on the numbers you enter and simplified assumptions about
+              GST and tax savings. Always validate against your provider quote
+              and speak with a qualified adviser before committing to a lease
+              or loan.
+            </p>
           </section>
         </main>
       </div>

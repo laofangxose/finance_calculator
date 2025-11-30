@@ -18,7 +18,14 @@ npm run dev
 - `npm run preview` – preview the production build locally
 - `npm run lint` – run ESLint
 
-## Next steps
-- Implement the novated lease calculator logic and comparisons (outright vs car loan).
-- Add FAQ/disclaimers and assumptions content.
-- Deploy to GitHub Pages or Vercel once the calculator is ready.
+## Deploying to GitHub Pages
+This repo is configured for GitHub Pages via Actions:
+
+- Workflow: `.github/workflows/deploy.yml` builds on `main` and deploys to Pages.
+- Vite base path is set to `/finance_calculator/` in `vite.config.ts`.
+- After pushing to `main`, check the Actions tab to confirm the deploy succeeded, then enable Pages (GitHub will set the environment URL).
+
+## About the calculator
+- Client-side only. Numbers stay in your browser.
+- Compares novated lease (after-tax cost) against buying outright and a standard car loan using your inputs.
+- Assumptions are simplified (e.g., GST saving applied upfront, residual paid at end). Always cross-check with your provider and adviser.
