@@ -143,7 +143,39 @@ function Card({
 }
 
 function App() {
-  const [inputs, setInputs] = useState<Inputs>(defaultInputs)
+  const [inputValues, setInputValues] = useState<
+    Record<keyof Inputs, string>
+  >({
+    vehiclePrice: defaultInputs.vehiclePrice.toString(),
+    leaseTermYears: defaultInputs.leaseTermYears.toString(),
+    residualPercent: defaultInputs.residualPercent.toString(),
+    leaseRate: defaultInputs.leaseRate.toString(),
+    runningCostsAnnual: defaultInputs.runningCostsAnnual.toString(),
+    providerFeesAnnual: defaultInputs.providerFeesAnnual.toString(),
+    taxRate: defaultInputs.taxRate.toString(),
+    gstRate: defaultInputs.gstRate.toString(),
+    loanTermYears: defaultInputs.loanTermYears.toString(),
+    loanRate: defaultInputs.loanRate.toString(),
+  })
+
+  const inputs: Inputs = useMemo(() => {
+    const parse = (value: string) => {
+      const n = parseFloat(value)
+      return Number.isFinite(n) ? n : 0
+    }
+    return {
+      vehiclePrice: parse(inputValues.vehiclePrice),
+      leaseTermYears: parse(inputValues.leaseTermYears),
+      residualPercent: parse(inputValues.residualPercent),
+      leaseRate: parse(inputValues.leaseRate),
+      runningCostsAnnual: parse(inputValues.runningCostsAnnual),
+      providerFeesAnnual: parse(inputValues.providerFeesAnnual),
+      taxRate: parse(inputValues.taxRate),
+      gstRate: parse(inputValues.gstRate),
+      loanTermYears: parse(inputValues.loanTermYears),
+      loanRate: parse(inputValues.loanRate),
+    }
+  }, [inputValues])
 
   const novated = useMemo(() => calculateNovated(inputs), [inputs])
   const outright = useMemo(() => calculateOutright(inputs), [inputs])
@@ -160,10 +192,7 @@ function App() {
   )
 
   const handleNumberChange = (key: keyof Inputs) => (value: string) => {
-    const numeric = Number(value)
-    if (Number.isFinite(numeric)) {
-      setInputs((prev) => ({ ...prev, [key]: numeric }))
-    }
+    setInputValues((prev) => ({ ...prev, [key]: value }))
   }
 
   const inputFields: {
@@ -256,7 +285,7 @@ function App() {
                       type="number"
                       step={field.step ?? 1}
                       min={field.min}
-                      value={inputs[field.key]}
+                      value={inputValues[field.key]}
                       onChange={(e) => handleNumberChange(field.key)(e.target.value)}
                       className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                     />
