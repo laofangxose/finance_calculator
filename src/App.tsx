@@ -417,6 +417,63 @@ function App() {
                   %
                 </p>
               </div>
+              <div className="space-y-3">
+                {comparisons.map(({ label, result }) => (
+                  <div
+                    key={label}
+                    className={`rounded-2xl border p-4 shadow shadow-slate-950/40 ${
+                      best.label === label
+                        ? 'border-emerald-500/60 bg-emerald-500/10'
+                        : 'border-slate-800 bg-slate-950/60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-semibold text-slate-100">
+                        {label}
+                      </h3>
+                      {best.label === label && (
+                        <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-100">
+                          Lowest total
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-1 text-sm text-slate-200">
+                      <p>Monthly: {currency.format(result.monthly)}</p>
+                      <p>Total over term: {currency.format(result.total)}</p>
+                      <p
+                        className={`text-xs ${
+                          result.total === best.result.total
+                            ? 'text-emerald-300'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {result.total === best.result.total
+                          ? 'Lowest total'
+                          : `${result.total - best.result.total > 0 ? '+' : ''}${currency.format(result.total - best.result.total)} vs lowest`}
+                      </p>
+                      {label !== 'Buy outright' && (
+                        <p className="text-xs text-slate-400">
+                          {`${result.total - cashOption.result.total > 0 ? '+' : ''}${currency.format(result.total - cashOption.result.total)} vs buy outright`}
+                        </p>
+                      )}
+                      {label === 'Buy outright' &&
+                        result.details.forgoneInterest !== undefined && (
+                          <p className="text-xs text-slate-400">
+                            Includes forgone interest:{' '}
+                            {currency.format(result.details.forgoneInterest)}
+                          </p>
+                        )}
+                      {label === 'Standard car loan' &&
+                        result.details.interestEarned !== undefined && (
+                          <p className="text-xs text-slate-400">
+                            Cash kept earning:{' '}
+                            {currency.format(result.details.interestEarned)}
+                          </p>
+                        )}
+                    </div>
+                  </div>
+                ))}
+              </div>
               <Card title="Quick assumptions">
                 <ul className="space-y-1 text-slate-300">
                   <li>- GST saving is applied upfront to the financed amount.</li>
@@ -434,61 +491,6 @@ function App() {
                 </ul>
               </Card>
             </div>
-          </section>
-
-          <section className="grid gap-4 md:grid-cols-3">
-            {comparisons.map(({ label, result }) => (
-              <div
-                key={label}
-                className={`rounded-2xl border p-5 shadow shadow-slate-950/40 ${
-                  best.label === label
-                    ? 'border-emerald-500/60 bg-emerald-500/10'
-                    : 'border-slate-800 bg-slate-950/60'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-lg font-semibold text-slate-100">
-                    {label}
-                  </h3>
-                  {best.label === label && (
-                    <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-100">
-                      Lowest total
-                    </span>
-                  )}
-                </div>
-                <div className="mt-3 space-y-2 text-sm text-slate-200">
-                  <p>Monthly: {currency.format(result.monthly)}</p>
-                  <p>Total over term: {currency.format(result.total)}</p>
-                  <p
-                    className={`text-xs ${
-                      result.total === best.result.total
-                        ? 'text-emerald-300'
-                        : 'text-slate-400'
-                    }`}
-                  >
-                    {result.total === best.result.total
-                      ? 'Lowest total'
-                      : `${result.total - best.result.total > 0 ? '+' : ''}${currency.format(result.total - best.result.total)} vs lowest`}
-                  </p>
-                  {label !== 'Buy outright' && (
-                    <p className="text-xs text-slate-400">
-                      {`${result.total - cashOption.result.total > 0 ? '+' : ''}${currency.format(result.total - cashOption.result.total)} vs buy outright`}
-                    </p>
-                  )}
-                  {label === 'Buy outright' && result.details.forgoneInterest !== undefined && (
-                    <p className="text-xs text-slate-400">
-                      Includes forgone interest: {currency.format(result.details.forgoneInterest)}
-                    </p>
-                  )}
-                  {label === 'Standard car loan' &&
-                    result.details.interestEarned !== undefined && (
-                      <p className="text-xs text-slate-400">
-                        Cash kept earning: {currency.format(result.details.interestEarned)}
-                      </p>
-                    )}
-                </div>
-              </div>
-            ))}
           </section>
 
           <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
