@@ -9,6 +9,7 @@ type Inputs = {
   providerFeesAnnual: number
   annualIncome: number
   loanRate: number
+  savingsRate: number
 }
 
 type Result = {
@@ -31,6 +32,7 @@ const defaultInputs: Inputs = {
   providerFeesAnnual: 400,
   annualIncome: 135000,
   loanRate: 9.0,
+  savingsRate: 4.5,
 }
 
 function paymentNoResidual(
@@ -98,11 +100,14 @@ function calculateNovated(inputs: Inputs): Result {
 
 function calculateOutright(inputs: Inputs): Result {
   const totalRunning = inputs.runningCostsAnnual * inputs.leaseTermYears
-  const total = inputs.vehiclePrice + totalRunning
+  const forgoneInterest =
+    inputs.vehiclePrice *
+    (Math.pow(1 + inputs.savingsRate / 100, inputs.leaseTermYears) - 1)
+  const total = inputs.vehiclePrice + totalRunning + forgoneInterest
   return {
     monthly: total / (inputs.leaseTermYears * 12),
     total,
-    details: { totalRunning },
+    details: { totalRunning, forgoneInterest },
   }
 }
 
@@ -148,6 +153,7 @@ function App() {
     providerFeesAnnual: defaultInputs.providerFeesAnnual.toString(),
     annualIncome: defaultInputs.annualIncome.toString(),
     loanRate: defaultInputs.loanRate.toString(),
+    savingsRate: defaultInputs.savingsRate.toString(),
   })
 
   const inputs: Inputs = useMemo(() => {
@@ -163,6 +169,7 @@ function App() {
       providerFeesAnnual: parse(inputValues.providerFeesAnnual),
       annualIncome: parse(inputValues.annualIncome),
       loanRate: parse(inputValues.loanRate),
+      savingsRate: parse(inputValues.savingsRate),
     }
   }, [inputValues])
 
@@ -236,6 +243,17 @@ function App() {
           key: 'loanRate',
           step: 0.1,
           hint: 'Loan term matches lease term automatically.',
+        },
+      ],
+    },
+    {
+      title: 'Cash purchase comparator',
+      fields: [
+        {
+          label: 'Savings interest rate (%)',
+          key: 'savingsRate',
+          step: 0.1,
+          hint: 'Used to estimate opportunity cost of paying cash upfront.',
         },
       ],
     },
@@ -412,6 +430,11 @@ function App() {
                 <div className="mt-3 space-y-2 text-sm text-slate-200">
                   <p>Monthly: {currency.format(result.monthly)}</p>
                   <p>Total over term: {currency.format(result.total)}</p>
+                  {label === 'Buy outright' && result.details.forgoneInterest !== undefined && (
+                    <p className="text-xs text-slate-400">
+                      Includes forgone interest: {currency.format(result.details.forgoneInterest)}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
@@ -485,6 +508,10 @@ function App() {
                 Residual/balloon is derived from the lease term using ATO
                 minimum percentages (1y: 65%, 2y: 56.25%, 3y: 46.88%, 4y:
                 37.5%, 5y: 28.13%).
+              </p>
+              <p>
+                Cash comparison includes the opportunity cost of cash at your
+                entered savings rate over the lease term.
               </p>
             </Card>
           </section>
