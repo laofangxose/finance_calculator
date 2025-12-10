@@ -119,11 +119,15 @@ function calculateLoan(inputs: Inputs): Result {
     months,
   )
   const runningMonthly = inputs.runningCostsAnnual / 12
-  const total = (monthlyPayment + runningMonthly) * months
+  const totalPayments = (monthlyPayment + runningMonthly) * months
+  const interestEarned =
+    inputs.vehiclePrice *
+    (Math.pow(1 + inputs.savingsRate / 100, inputs.leaseTermYears) - 1)
+  const total = totalPayments - interestEarned
   return {
     monthly: monthlyPayment + runningMonthly,
     total,
-    details: { monthlyPayment, runningMonthly },
+    details: { monthlyPayment, runningMonthly, interestEarned },
   }
 }
 
@@ -186,6 +190,7 @@ function App() {
   const best = comparisons.reduce((prev, curr) =>
     curr.result.total < prev.result.total ? curr : prev,
   )
+  const cashOption = comparisons.find((c) => c.label === 'Buy outright')!
 
   const handleNumberChange = (key: keyof Inputs) => (value: string) => {
     setInputValues((prev) => ({ ...prev, [key]: value }))
@@ -402,6 +407,10 @@ function App() {
                   <li>- Residual is paid at end of lease and added to total.</li>
                   <li>- Running costs are treated evenly across months.</li>
                   <li>- Loan term is matched to lease term for comparison.</li>
+                  <li>
+                    - Cash path includes forgone interest; loan path assumes you keep
+                    the cash invested at the savings rate.
+                  </li>
                 </ul>
               </Card>
             </div>
@@ -430,11 +439,33 @@ function App() {
                 <div className="mt-3 space-y-2 text-sm text-slate-200">
                   <p>Monthly: {currency.format(result.monthly)}</p>
                   <p>Total over term: {currency.format(result.total)}</p>
+                  <p
+                    className={`text-xs ${
+                      result.total === best.result.total
+                        ? 'text-emerald-300'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {result.total === best.result.total
+                      ? 'Lowest total'
+                      : `${result.total - best.result.total > 0 ? '+' : ''}${currency.format(result.total - best.result.total)} vs lowest`}
+                  </p>
+                  {label !== 'Buy outright' && (
+                    <p className="text-xs text-slate-400">
+                      {`${result.total - cashOption.result.total > 0 ? '+' : ''}${currency.format(result.total - cashOption.result.total)} vs buy outright`}
+                    </p>
+                  )}
                   {label === 'Buy outright' && result.details.forgoneInterest !== undefined && (
                     <p className="text-xs text-slate-400">
                       Includes forgone interest: {currency.format(result.details.forgoneInterest)}
                     </p>
                   )}
+                  {label === 'Standard car loan' &&
+                    result.details.interestEarned !== undefined && (
+                      <p className="text-xs text-slate-400">
+                        Cash kept earning: {currency.format(result.details.interestEarned)}
+                      </p>
+                    )}
                 </div>
               </div>
             ))}
