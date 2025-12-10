@@ -8,8 +8,6 @@ type Inputs = {
   runningCostsAnnual: number
   providerFeesAnnual: number
   annualIncome: number
-  gstRate: number
-  loanTermYears: number
   loanRate: number
 }
 
@@ -32,8 +30,6 @@ const defaultInputs: Inputs = {
   runningCostsAnnual: 5500,
   providerFeesAnnual: 400,
   annualIncome: 135000,
-  gstRate: 0.1,
-  loanTermYears: 5,
   loanRate: 9.0,
 }
 
@@ -76,7 +72,7 @@ function calculateNovated(inputs: Inputs): Result {
   const months = inputs.leaseTermYears * 12
   const residualPercent = residualPercentForTerm(inputs.leaseTermYears)
   const residual = inputs.vehiclePrice * (residualPercent / 100)
-  const gstSavings = inputs.vehiclePrice * inputs.gstRate
+  const gstSavings = inputs.vehiclePrice * 0.1
   const leaseMonthly = inputs.leaseMonthlyPreTax
   const runningMonthly = inputs.runningCostsAnnual / 12
   const feesMonthly = inputs.providerFeesAnnual / 12
@@ -111,7 +107,7 @@ function calculateOutright(inputs: Inputs): Result {
 }
 
 function calculateLoan(inputs: Inputs): Result {
-  const months = inputs.loanTermYears * 12
+  const months = inputs.leaseTermYears * 12
   const monthlyPayment = paymentNoResidual(
     inputs.vehiclePrice,
     inputs.loanRate,
@@ -151,8 +147,6 @@ function App() {
     runningCostsAnnual: defaultInputs.runningCostsAnnual.toString(),
     providerFeesAnnual: defaultInputs.providerFeesAnnual.toString(),
     annualIncome: defaultInputs.annualIncome.toString(),
-    gstRate: defaultInputs.gstRate.toString(),
-    loanTermYears: defaultInputs.loanTermYears.toString(),
     loanRate: defaultInputs.loanRate.toString(),
   })
 
@@ -168,8 +162,6 @@ function App() {
       runningCostsAnnual: parse(inputValues.runningCostsAnnual),
       providerFeesAnnual: parse(inputValues.providerFeesAnnual),
       annualIncome: parse(inputValues.annualIncome),
-      gstRate: parse(inputValues.gstRate),
-      loanTermYears: parse(inputValues.loanTermYears),
       loanRate: parse(inputValues.loanRate),
     }
   }, [inputValues])
@@ -192,46 +184,60 @@ function App() {
     setInputValues((prev) => ({ ...prev, [key]: value }))
   }
 
-  const inputFields: {
-    label: string
-    key: keyof Inputs
-    hint?: string
-    step?: number
-    min?: number
-    max?: number
-    type?: 'range' | 'number'
+  const inputSections: {
+    title: string
+    fields: {
+      label: string
+      key: keyof Inputs
+      hint?: string
+      step?: number
+      min?: number
+      max?: number
+      type?: 'range' | 'number'
+    }[]
   }[] = [
-    { label: 'Vehicle price (incl. GST)', key: 'vehiclePrice', step: 1000 },
     {
-      label: 'Lease term (years)',
-      key: 'leaseTermYears',
-      step: 1,
-      min: 1,
-      max: 5,
-      type: 'range',
+      title: 'Novated lease quote',
+      fields: [
+        { label: 'Vehicle price (incl. GST)', key: 'vehiclePrice', step: 1000 },
+        {
+          label: 'Lease term (years)',
+          key: 'leaseTermYears',
+          step: 1,
+          min: 1,
+          max: 5,
+          type: 'range',
+        },
+        {
+          label: 'Pre-tax monthly lease quote',
+          key: 'leaseMonthlyPreTax',
+          step: 10,
+        },
+        { label: 'Running costs per year', key: 'runningCostsAnnual', step: 250 },
+        { label: 'Provider fees per year', key: 'providerFeesAnnual', step: 50 },
+      ],
     },
     {
-      label: 'Pre-tax monthly lease quote',
-      key: 'leaseMonthlyPreTax',
-      step: 10,
+      title: 'Income (for tax saving)',
+      fields: [
+        {
+          label: 'Annual income',
+          key: 'annualIncome',
+          step: 1000,
+          hint: 'Used to derive marginal tax rate automatically.',
+        },
+      ],
     },
-    { label: 'Running costs per year', key: 'runningCostsAnnual', step: 250 },
-    { label: 'Provider fees per year', key: 'providerFeesAnnual', step: 50 },
     {
-      label: 'Annual income (for marginal tax rate)',
-      key: 'annualIncome',
-      step: 1000,
-    },
-    {
-      label: 'GST rate (decimal)',
-      key: 'gstRate',
-      step: 0.01,
-    },
-    { label: 'Loan term (years)', key: 'loanTermYears', step: 0.5, min: 1 },
-    {
-      label: 'Standard car loan rate (%)',
-      key: 'loanRate',
-      step: 0.1,
+      title: 'Car loan comparator',
+      fields: [
+        {
+          label: 'Standard car loan rate (%)',
+          key: 'loanRate',
+          step: 0.1,
+          hint: 'Loan term matches lease term automatically.',
+        },
+      ],
     },
   ]
 
@@ -283,47 +289,61 @@ function App() {
                   Client-side only
                 </span>
               </div>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {inputFields.map((field) => (
-                  <label
-                    key={field.key}
-                    className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm"
+              <div className="mt-6 grid gap-4">
+                {inputSections.map((section) => (
+                  <div
+                    key={section.title}
+                    className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4"
                   >
-                    <span className="text-slate-200">{field.label}</span>
-                    {field.type === 'range' ? (
-                      <>
-                        <input
-                          type="range"
-                          min={field.min}
-                          max={field.max}
-                          step={field.step ?? 1}
-                          value={inputValues[field.key]}
-                          onChange={(e) =>
-                            handleNumberChange(field.key)(e.target.value)
-                          }
-                          className="accent-emerald-500"
-                        />
-                        <div className="text-xs text-slate-400">
-                          {inputValues[field.key]} years
-                        </div>
-                      </>
-                    ) : (
-                      <input
-                        type="number"
-                        step={field.step ?? 1}
-                        min={field.min}
-                        max={field.max}
-                        value={inputValues[field.key]}
-                        onChange={(e) =>
-                          handleNumberChange(field.key)(e.target.value)
-                        }
-                        className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
-                      />
-                    )}
-                    {field.hint && (
-                      <span className="text-xs text-slate-400">{field.hint}</span>
-                    )}
-                  </label>
+                    <p className="text-sm font-semibold text-slate-100">
+                      {section.title}
+                    </p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {section.fields.map((field) => (
+                        <label
+                          key={field.key}
+                          className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm"
+                        >
+                          <span className="text-slate-200">{field.label}</span>
+                          {field.type === 'range' ? (
+                            <>
+                              <input
+                                type="range"
+                                min={field.min}
+                                max={field.max}
+                                step={field.step ?? 1}
+                                value={inputValues[field.key]}
+                                onChange={(e) =>
+                                  handleNumberChange(field.key)(e.target.value)
+                                }
+                                className="accent-emerald-500"
+                              />
+                              <div className="text-xs text-slate-400">
+                                {inputValues[field.key]} years
+                              </div>
+                            </>
+                          ) : (
+                            <input
+                              type="number"
+                              step={field.step ?? 1}
+                              min={field.min}
+                              max={field.max}
+                              value={inputValues[field.key]}
+                              onChange={(e) =>
+                                handleNumberChange(field.key)(e.target.value)
+                              }
+                              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
+                            />
+                          )}
+                          {field.hint && (
+                            <span className="text-xs text-slate-400">
+                              {field.hint}
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -363,6 +383,7 @@ function App() {
                   </li>
                   <li>- Residual is paid at end of lease and added to total.</li>
                   <li>- Running costs are treated evenly across months.</li>
+                  <li>- Loan term is matched to lease term for comparison.</li>
                 </ul>
               </Card>
             </div>
@@ -452,9 +473,9 @@ function App() {
                 final numbers.
               </p>
               <p>
-                Tax and GST treatment can change by jurisdiction. Confirm your
-                marginal tax rate and any caps with your payroll/HR or tax
-                adviser.
+                Tax treatment can change by jurisdiction. Confirm your marginal
+                tax rate and any caps with your payroll/HR or tax adviser. GST is
+                fixed at 10% here.
               </p>
               <p>
                 Running costs are averaged; in reality, fuel/charging and
