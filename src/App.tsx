@@ -4,11 +4,10 @@ import './index.css'
 type Inputs = {
   vehiclePrice: number
   leaseTermYears: number
-  residualPercent: number
-  leaseRate: number
+  leaseMonthlyPreTax: number
   runningCostsAnnual: number
   providerFeesAnnual: number
-  taxRate: number
+  annualIncome: number
   gstRate: number
   loanTermYears: number
   loanRate: number
@@ -29,31 +28,13 @@ const currency = new Intl.NumberFormat('en-AU', {
 const defaultInputs: Inputs = {
   vehiclePrice: 65000,
   leaseTermYears: 4,
-  residualPercent: 37.5,
-  leaseRate: 8.5,
+  leaseMonthlyPreTax: 950,
   runningCostsAnnual: 5500,
   providerFeesAnnual: 400,
-  taxRate: 0.37,
+  annualIncome: 135000,
   gstRate: 0.1,
   loanTermYears: 5,
   loanRate: 9.0,
-}
-
-function paymentWithResidual(
-  principal: number,
-  annualRatePct: number,
-  months: number,
-  residual: number,
-): number {
-  const monthlyRate = annualRatePct / 100 / 12
-  if (monthlyRate === 0) {
-    return (principal - residual) / months
-  }
-  const discountResidual = residual / Math.pow(1 + monthlyRate, months)
-  const adjustedPrincipal = principal - discountResidual
-  return (
-    (adjustedPrincipal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months))
-  )
 }
 
 function paymentNoResidual(
@@ -70,22 +51,38 @@ function paymentNoResidual(
   )
 }
 
+function residualPercentForTerm(leaseTermYears: number): number {
+  // Approximate Australian ATO minimum residual percentages
+  const lookup: Record<number, number> = {
+    1: 65,
+    2: 56.25,
+    3: 46.88,
+    4: 37.5,
+    5: 28.13,
+  }
+  return lookup[Math.round(leaseTermYears)] ?? 37.5
+}
+
+function marginalTaxRateForIncome(annualIncome: number): number {
+  // 2024-25 stage 3 brackets (simplified, no Medicare levy)
+  if (annualIncome <= 18200) return 0
+  if (annualIncome <= 45000) return 0.16
+  if (annualIncome <= 135000) return 0.3
+  if (annualIncome <= 190000) return 0.37
+  return 0.45
+}
+
 function calculateNovated(inputs: Inputs): Result {
   const months = inputs.leaseTermYears * 12
-  const residual = inputs.vehiclePrice * (inputs.residualPercent / 100)
+  const residualPercent = residualPercentForTerm(inputs.leaseTermYears)
+  const residual = inputs.vehiclePrice * (residualPercent / 100)
   const gstSavings = inputs.vehiclePrice * inputs.gstRate
-  const financedPrincipal = inputs.vehiclePrice - gstSavings
-  const leaseMonthly = paymentWithResidual(
-    financedPrincipal,
-    inputs.leaseRate,
-    months,
-    residual,
-  )
-
+  const leaseMonthly = inputs.leaseMonthlyPreTax
   const runningMonthly = inputs.runningCostsAnnual / 12
   const feesMonthly = inputs.providerFeesAnnual / 12
   const bundlePreTax = leaseMonthly + runningMonthly + feesMonthly
-  const netMonthly = bundlePreTax * (1 - inputs.taxRate)
+  const taxRate = marginalTaxRateForIncome(inputs.annualIncome)
+  const netMonthly = bundlePreTax * (1 - taxRate)
   const total = netMonthly * months + residual
 
   return {
@@ -97,6 +94,8 @@ function calculateNovated(inputs: Inputs): Result {
       feesMonthly,
       residual,
       gstSavings,
+      residualPercent,
+      taxRate,
     },
   }
 }
@@ -148,11 +147,10 @@ function App() {
   >({
     vehiclePrice: defaultInputs.vehiclePrice.toString(),
     leaseTermYears: defaultInputs.leaseTermYears.toString(),
-    residualPercent: defaultInputs.residualPercent.toString(),
-    leaseRate: defaultInputs.leaseRate.toString(),
+    leaseMonthlyPreTax: defaultInputs.leaseMonthlyPreTax.toString(),
     runningCostsAnnual: defaultInputs.runningCostsAnnual.toString(),
     providerFeesAnnual: defaultInputs.providerFeesAnnual.toString(),
-    taxRate: defaultInputs.taxRate.toString(),
+    annualIncome: defaultInputs.annualIncome.toString(),
     gstRate: defaultInputs.gstRate.toString(),
     loanTermYears: defaultInputs.loanTermYears.toString(),
     loanRate: defaultInputs.loanRate.toString(),
@@ -166,11 +164,10 @@ function App() {
     return {
       vehiclePrice: parse(inputValues.vehiclePrice),
       leaseTermYears: parse(inputValues.leaseTermYears),
-      residualPercent: parse(inputValues.residualPercent),
-      leaseRate: parse(inputValues.leaseRate),
+      leaseMonthlyPreTax: parse(inputValues.leaseMonthlyPreTax),
       runningCostsAnnual: parse(inputValues.runningCostsAnnual),
       providerFeesAnnual: parse(inputValues.providerFeesAnnual),
-      taxRate: parse(inputValues.taxRate),
+      annualIncome: parse(inputValues.annualIncome),
       gstRate: parse(inputValues.gstRate),
       loanTermYears: parse(inputValues.loanTermYears),
       loanRate: parse(inputValues.loanRate),
@@ -201,17 +198,29 @@ function App() {
     hint?: string
     step?: number
     min?: number
+    max?: number
+    type?: 'range' | 'number'
   }[] = [
     { label: 'Vehicle price (incl. GST)', key: 'vehiclePrice', step: 1000 },
-    { label: 'Lease term (years)', key: 'leaseTermYears', step: 0.5, min: 1 },
-    { label: 'Residual/balloon (%)', key: 'residualPercent', step: 0.5 },
-    { label: 'Lease interest rate (%)', key: 'leaseRate', step: 0.1 },
+    {
+      label: 'Lease term (years)',
+      key: 'leaseTermYears',
+      step: 1,
+      min: 1,
+      max: 5,
+      type: 'range',
+    },
+    {
+      label: 'Pre-tax monthly lease quote',
+      key: 'leaseMonthlyPreTax',
+      step: 10,
+    },
     { label: 'Running costs per year', key: 'runningCostsAnnual', step: 250 },
     { label: 'Provider fees per year', key: 'providerFeesAnnual', step: 50 },
     {
-      label: 'Marginal tax rate (decimal, e.g. 0.37)',
-      key: 'taxRate',
-      step: 0.01,
+      label: 'Annual income (for marginal tax rate)',
+      key: 'annualIncome',
+      step: 1000,
     },
     {
       label: 'GST rate (decimal)',
@@ -281,14 +290,36 @@ function App() {
                     className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm"
                   >
                     <span className="text-slate-200">{field.label}</span>
-                    <input
-                      type="number"
-                      step={field.step ?? 1}
-                      min={field.min}
-                      value={inputValues[field.key]}
-                      onChange={(e) => handleNumberChange(field.key)(e.target.value)}
-                      className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
-                    />
+                    {field.type === 'range' ? (
+                      <>
+                        <input
+                          type="range"
+                          min={field.min}
+                          max={field.max}
+                          step={field.step ?? 1}
+                          value={inputValues[field.key]}
+                          onChange={(e) =>
+                            handleNumberChange(field.key)(e.target.value)
+                          }
+                          className="accent-emerald-500"
+                        />
+                        <div className="text-xs text-slate-400">
+                          {inputValues[field.key]} years
+                        </div>
+                      </>
+                    ) : (
+                      <input
+                        type="number"
+                        step={field.step ?? 1}
+                        min={field.min}
+                        max={field.max}
+                        value={inputValues[field.key]}
+                        onChange={(e) =>
+                          handleNumberChange(field.key)(e.target.value)
+                        }
+                        className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
+                      />
+                    )}
                     {field.hint && (
                       <span className="text-xs text-slate-400">{field.hint}</span>
                     )}
@@ -307,6 +338,20 @@ function App() {
                 </p>
                 <p>
                   Estimated total over term: {currency.format(best.result.total)}
+                </p>
+                <p className="text-xs text-slate-400">
+                  Marginal tax rate (derived):{' '}
+                  {Math.round(
+                    marginalTaxRateForIncome(inputs.annualIncome) * 1000,
+                  ) / 10}
+                  %
+                </p>
+                <p className="text-xs text-slate-400">
+                  Residual (derived from term):{' '}
+                  {Math.round(
+                    residualPercentForTerm(inputs.leaseTermYears) * 100,
+                  ) / 100}
+                  %
                 </p>
               </Card>
               <Card title="Quick assumptions">
@@ -384,6 +429,18 @@ function App() {
                     {currency.format(novated.details.gstSavings)}
                   </p>
                 </div>
+                <div>
+                  <p className="text-slate-400">Residual percentage</p>
+                  <p className="font-semibold text-slate-100">
+                    {novated.details.residualPercent?.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Marginal tax rate</p>
+                  <p className="font-semibold text-slate-100">
+                    {Math.round((novated.details.taxRate ?? 0) * 1000) / 10}%
+                  </p>
+                </div>
               </div>
             </Card>
 
@@ -402,6 +459,11 @@ function App() {
               <p>
                 Running costs are averaged; in reality, fuel/charging and
                 maintenance will vary by month.
+              </p>
+              <p>
+                Residual/balloon is derived from the lease term using ATO
+                minimum percentages (1y: 65%, 2y: 56.25%, 3y: 46.88%, 4y:
+                37.5%, 5y: 28.13%).
               </p>
             </Card>
           </section>
