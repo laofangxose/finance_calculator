@@ -299,16 +299,18 @@ function App() {
                 {inputSections.map((section) => (
                   <div
                     key={section.title}
-                    className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4"
+                    className="rounded-2xl border border-slate-800 bg-slate-950/40 p-3 sm:p-4"
                   >
                     <p className="text-sm font-semibold text-slate-100">
                       {section.title}
                     </p>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div
+                      className={`mt-3 grid grid-cols-1 gap-3 ${section.fields.length > 1 ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}
+                    >
                       {section.fields.map((field) => (
                         <label
                           key={field.key}
-                          className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm"
+                          className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-3 text-sm"
                         >
                           <span className="text-slate-200">{field.label}</span>
                           {field.type === 'range' ? (
@@ -519,7 +521,8 @@ function App() {
               relies on the numbers you enter and simplified assumptions about
               GST and tax savings. Always validate against your provider quote
               and speak with a qualified adviser before committing to a lease
-              or loan.
+              or loan. Calculations run entirely in your browser; your inputs are
+              not sent or stored anywhere.
             </p>
           </section>
         </main>
