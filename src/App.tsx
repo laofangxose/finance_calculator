@@ -273,28 +273,11 @@ function App() {
               Novated lease calculator
             </p>
             <h1 className="mt-1 text-3xl font-semibold sm:text-4xl">
-              Compare novated lease vs buying outright or a car loan
+              Compare lease vs cash vs loan
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">
-              Enter your provider quote and assumptions. We estimate monthly net
-              cost (after tax), total cost over the term, and how it compares to
-              buying outright or taking a standard loan. All calculations run in
-              your browser—nothing is stored.
+              Enter your quote and we&rsquo;ll show monthly and total costs for each path.
             </p>
-          </div>
-          <div className="flex gap-3">
-            <a
-              href="#get-started"
-              className="rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/30 transition hover:translate-y-px hover:bg-emerald-400"
-            >
-              Get started
-            </a>
-            <a
-              href="#disclaimers"
-              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-500 hover:bg-slate-800"
-            >
-              Read assumptions
-            </a>
           </div>
         </header>
 
