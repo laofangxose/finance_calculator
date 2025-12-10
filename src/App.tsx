@@ -514,6 +514,20 @@ function App() {
           </section>
         </main>
       </div>
+      <footer className="border-t border-slate-900 bg-slate-950/80 px-4 py-6 text-center text-sm text-slate-400">
+        <p>© {new Date().getFullYear()} Novated Lease Saving Calculator</p>
+        <p>
+          Source:{' '}
+          <a
+            href="https://github.com/laofangxose/finance_calculator"
+            className="text-emerald-300 underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            github.com/laofangxose/finance_calculator
+          </a>
+        </p>
+      </footer>
     </div>
   )
 }
