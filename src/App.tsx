@@ -209,7 +209,7 @@ function App() {
     }[]
   }[] = [
     {
-      title: 'Novated lease quote',
+      title: 'Novated lease quote & income',
       fields: [
         { label: 'Vehicle price (incl. GST)', key: 'vehiclePrice', step: 1000 },
         {
@@ -227,13 +227,8 @@ function App() {
         },
         { label: 'Running costs per year', key: 'runningCostsAnnual', step: 250 },
         { label: 'Provider fees per year', key: 'providerFeesAnnual', step: 50 },
-      ],
-    },
-    {
-      title: 'Income (for tax saving)',
-      fields: [
         {
-          label: 'Annual income',
+          label: 'Annual income (for tax saving)',
           key: 'annualIncome',
           step: 1000,
           hint: 'Used to derive marginal tax rate automatically.',
@@ -241,7 +236,7 @@ function App() {
       ],
     },
     {
-      title: 'Car loan comparator',
+      title: 'Comparators',
       fields: [
         {
           label: 'Standard car loan rate (%)',
@@ -249,16 +244,11 @@ function App() {
           step: 0.1,
           hint: 'Loan term matches lease term automatically.',
         },
-      ],
-    },
-    {
-      title: 'Cash purchase comparator',
-      fields: [
         {
           label: 'Savings interest rate (%)',
           key: 'savingsRate',
           step: 0.1,
-          hint: 'Used to estimate opportunity cost of paying cash upfront.',
+          hint: 'Opportunity cost of paying cash upfront.',
         },
       ],
     },
@@ -273,7 +263,7 @@ function App() {
               Novated lease calculator
             </p>
             <h1 className="mt-1 text-3xl font-semibold sm:text-4xl">
-              Compare lease vs cash vs loan
+              Novated lease saving calculator
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">
               Enter your quote and we&rsquo;ll show monthly and total costs for each path.
@@ -291,11 +281,8 @@ function App() {
                 <h2 className="text-2xl font-semibold sm:text-3xl">
                   Enter your numbers
                 </h2>
-                <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
-                  Client-side only
-                </span>
               </div>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="mt-6 space-y-3">
                 {inputSections.map((section) => (
                   <div
                     key={section.title}
@@ -527,20 +514,6 @@ function App() {
           </section>
         </main>
       </div>
-      <footer className="border-t border-slate-900 bg-slate-950/80 px-4 py-6 text-center text-sm text-slate-400">
-        <p>© {new Date().getFullYear()} Novated Lease Calculator. Client-side only.</p>
-        <p>
-          Source code:{' '}
-          <a
-            href="https://github.com/laofangxose/finance_calculator"
-            className="text-emerald-300 underline"
-            target="_blank"
-            rel="noreferrer"
-          >
-            github.com/laofangxose/finance_calculator
-          </a>
-        </p>
-      </footer>
     </div>
   )
 }
