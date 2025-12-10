@@ -191,13 +191,6 @@ function App() {
     curr.result.total < prev.result.total ? curr : prev,
   )
   const cashOption = comparisons.find((c) => c.label === 'Buy outright')!
-  const sortedComparisons = [...comparisons].sort(
-    (a, b) => a.result.total - b.result.total,
-  )
-  const runnerUp = sortedComparisons[1]
-  const deltaRunnerUp = runnerUp
-    ? runnerUp.result.total - best.result.total
-    : 0
 
   const handleNumberChange = (key: keyof Inputs) => (value: string) => {
     setInputValues((prev) => ({ ...prev, [key]: value }))
@@ -379,44 +372,6 @@ function App() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-2xl border border-emerald-500/70 bg-gradient-to-br from-emerald-500/15 via-slate-900/70 to-slate-950/80 p-5 shadow-lg shadow-emerald-500/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-100">
-                      Best option
-                    </span>
-                    {runnerUp && (
-                      <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200">
-                        {currency.format(deltaRunnerUp)} better than next
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-sm text-emerald-200">
-                    Residual: {residualPercentForTerm(inputs.leaseTermYears).toFixed(2)}%
-                  </span>
-                </div>
-                <h3 className="mt-3 text-xl font-semibold text-emerald-100">
-                  {best.label}
-                </h3>
-                <p className="text-sm text-slate-200">
-                  Monthly: {currency.format(best.result.monthly)}
-                </p>
-                <p className="text-sm text-slate-200">
-                  Total over term: {currency.format(best.result.total)}
-                </p>
-                {runnerUp && (
-                  <p className="text-xs text-slate-300">
-                    Runner up: {runnerUp.label} ({currency.format(runnerUp.result.total)})
-                  </p>
-                )}
-                <p className="mt-2 text-xs text-slate-400">
-                  Marginal tax rate (derived):{' '}
-                  {Math.round(
-                    marginalTaxRateForIncome(inputs.annualIncome) * 1000,
-                  ) / 10}
-                  %
-                </p>
-              </div>
               <div className="space-y-3">
                 {comparisons.map(({ label, result }) => (
                   <div
@@ -439,7 +394,9 @@ function App() {
                     </div>
                     <div className="mt-2 space-y-1 text-sm text-slate-200">
                       <p>Monthly: {currency.format(result.monthly)}</p>
-                      <p>Total over term: {currency.format(result.total)}</p>
+                      <p className="text-xl font-semibold text-slate-50">
+                        Total: {currency.format(result.total)}
+                      </p>
                       <p
                         className={`text-xs ${
                           result.total === best.result.total
